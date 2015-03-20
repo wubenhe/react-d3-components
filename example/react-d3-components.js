@@ -460,8 +460,12 @@ module.exports = Axis;
 var React = require("./ReactProvider");
 var d3 = require("./D3Provider");
 
+var TransitionMixin = require("./TransitionMixin").TransitionMixin;
+
 var Bar = React.createClass({
 	displayName: "Bar",
+
+	mixins: [TransitionMixin],
 
 	propTypes: {
 		width: React.PropTypes.number.isRequired,
@@ -472,6 +476,17 @@ var Bar = React.createClass({
 		data: React.PropTypes.oneOfType([React.PropTypes.array, React.PropTypes.object]).isRequired,
 		onMouseEnter: React.PropTypes.func,
 		onMouseLeave: React.PropTypes.func
+	},
+
+	getInitialState: function getInitialState() {
+		return {
+			x: this.props.x,
+			y: this.props.y,
+			width: this.props.width,
+			height: this.props.height,
+			fill: this.props.fill,
+			opacity: 1
+		};
 	},
 
 	render: function render() {
@@ -487,11 +502,12 @@ var Bar = React.createClass({
 
 		return React.createElement("rect", {
 			className: "bar",
-			x: x,
-			y: y,
-			width: width,
-			height: height,
-			fill: fill,
+			x: this.state.x,
+			y: this.state.y,
+			width: this.state.width,
+			height: this.state.height,
+			fill: this.state.fill,
+			opacity: this.state.opacity,
 			onMouseMove: function (e) {
 				onMouseEnter(e, data);
 			},
@@ -504,7 +520,7 @@ var Bar = React.createClass({
 
 module.exports = Bar;
 
-},{"./D3Provider":9,"./ReactProvider":16}],6:[function(require,module,exports){
+},{"./D3Provider":9,"./ReactProvider":16,"./TransitionMixin":23}],6:[function(require,module,exports){
 "use strict";
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
@@ -553,6 +569,7 @@ var DataSet = React.createClass({
 		var y0 = _props.y0;
 		var onMouseEnter = _props.onMouseEnter;
 		var onMouseLeave = _props.onMouseLeave;
+		var transition = _props.transition;
 
 		var bars = data.map(function (stack) {
 			return values(stack).map(function (e) {
@@ -564,7 +581,10 @@ var DataSet = React.createClass({
 					fill: colorScale(label(stack)),
 					data: e,
 					onMouseEnter: onMouseEnter,
-					onMouseLeave: onMouseLeave
+					onMouseLeave: onMouseLeave,
+					transition: transition,
+					xScale: xScale,
+					yScale: yScale
 				});
 			});
 		});
@@ -603,6 +623,7 @@ var BarChart = React.createClass({
 		var x = _props.x;
 		var xAxis = _props.xAxis;
 		var yAxis = _props.yAxis;
+		var transition = _props.transition;
 		var data = this._data;
 		var innerWidth = this._innerWidth;
 		var innerHeight = this._innerHeight;
@@ -626,7 +647,8 @@ var BarChart = React.createClass({
 					y0: y0,
 					x: x,
 					onMouseEnter: this.onMouseEnter,
-					onMouseLeave: this.onMouseLeave
+					onMouseLeave: this.onMouseLeave,
+					transition: transition
 				}),
 				React.createElement(Axis, _extends({
 					className: "x axis",
@@ -1842,11 +1864,11 @@ module.exports = PieChart;
 },{"./AccessorMixin":1,"./Chart":8,"./D3Provider":9,"./DefaultPropsMixin":10,"./HeightWidthMixin":12,"./ReactProvider":16,"./Tooltip":20,"./TooltipMixin":21}],16:[function(require,module,exports){
 "use strict";
 
-var React = window.React || require("react");
+var React = window.React || require("react/addons");
 
 module.exports = React;
 
-},{"react":undefined}],17:[function(require,module,exports){
+},{"react/addons":undefined}],17:[function(require,module,exports){
 "use strict";
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
@@ -2220,12 +2242,138 @@ module.exports = TooltipMixin;
 },{"./D3Provider":9,"./ReactProvider":16}],22:[function(require,module,exports){
 "use strict";
 
+var d3 = require("./D3Provider");
+
+var Transition = exports.Transition = function () {
+	var transition = {};
+
+	var _attributes = {};
+	var _styles = {};
+
+	var _delay = 0;
+	var _duration = 250;
+	var _ease = d3.ease("linear");
+
+	transition.delay = function (delay) {
+		if (!delay) {
+			return _delay;
+		}
+
+		_delay = delay;
+		return transition;
+	};
+
+	transition.duration = function (duration) {
+		if (!duration) {
+			return _duration;
+		}
+
+		_duration = duration;
+		return transition;
+	};
+
+	transition.ease = function (value, args) {
+		if (!value) {
+			return _ease;
+		}
+		//if is fn
+		_ease = value;
+		// else
+		// d3.ease(value, arguments);
+		return transition;
+	};
+
+	transition.attr = function (name, end, start) {
+		_attributes[name] = { end: end, start: start };
+		return transition;
+	};
+
+	// let attrTween
+
+	transition.style = function (name, value) {
+		_styles[name] = value;
+		return transition;
+	};
+
+	transition.attributes = function () {
+		return _attributes;
+	};
+
+	// let styleTween
+
+	// each for events? start/stop?
+	// what about enter/leave?
+	return transition;
+};
+Object.defineProperty(exports, "__esModule", {
+	value: true
+});
+
+},{"./D3Provider":9}],23:[function(require,module,exports){
+"use strict";
+
+var React = require("./ReactProvider");
+var d3 = require("./D3Provider");
+
+var TransitionMixin = exports.TransitionMixin = {
+	_transition: function _transition() {
+		var _this = this;
+
+		for (var key in this.props.transition.attributes()) {
+			(function (key) {
+				var attr = _this.props.transition.attributes()[key];
+
+				var startVal = typeof attr.start === "function" ? attr.start.call(_this, _this.props.data, _this.props.xScale, _this.props.yScale) : attr.start;
+
+				var endVal = typeof attr.end === "function" ? attr.end.call(_this, _this.props.data, _this.props.xScale, _this.props.yScale) : attr.end;
+
+				var interpolator = d3.interpolate(startVal !== undefined ? startVal : _this.state[key], endVal);
+
+				d3.timer(function (elapsed) {
+					var t = elapsed / _this.props.transition.duration();
+
+					var state = {};
+					state[key] = interpolator(_this.props.transition.ease()(t));
+					_this.setState(state);
+
+					if (t > 1) {
+						return true;
+					}
+
+					return false;
+				}, _this.props.transition.delay());
+			})(key);
+		}
+	},
+
+	componentDidMount: function componentDidMount() {
+		if (this.props.transition) {
+			this._transition();
+		}
+	},
+
+	componentWillReceiveProps: function componentWillReceiveProps(nextProps) {
+		if (this.props.transition && JSON.stringify(this.props) !== JSON.stringify(nextProps)) {
+			this._transition();
+		}
+	}
+};
+Object.defineProperty(exports, "__esModule", {
+	value: true
+});
+
+},{"./D3Provider":9,"./ReactProvider":16}],24:[function(require,module,exports){
+"use strict";
+
 var BarChart = require("./BarChart");
 var PieChart = require("./PieChart");
 var ScatterPlot = require("./ScatterPlot");
 var LineChart = require("./LineChart");
 var AreaChart = require("./AreaChart");
 var Brush = require("./Brush");
+//let Transition = require('./Transition');
+
+var Transition = require("./Transition").Transition;
 
 module.exports = {
 	BarChart: BarChart,
@@ -2233,8 +2381,9 @@ module.exports = {
 	ScatterPlot: ScatterPlot,
 	LineChart: LineChart,
 	AreaChart: AreaChart,
-	Brush: Brush
+	Brush: Brush,
+	Transition: Transition
 };
 
-},{"./AreaChart":2,"./BarChart":6,"./Brush":7,"./LineChart":13,"./PieChart":15,"./ScatterPlot":17}]},{},[22])(22)
+},{"./AreaChart":2,"./BarChart":6,"./Brush":7,"./LineChart":13,"./PieChart":15,"./ScatterPlot":17,"./Transition":22}]},{},[24])(24)
 });

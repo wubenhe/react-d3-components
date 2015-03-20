@@ -4,6 +4,9 @@ let ScatterPlot = require('./ScatterPlot');
 let LineChart = require('./LineChart');
 let AreaChart = require('./AreaChart');
 let Brush = require('./Brush');
+//let Transition = require('./Transition');
+
+import { Transition } from './Transition';
 
 module.exports = {
 	BarChart: BarChart,
@@ -11,5 +14,6 @@ module.exports = {
 	ScatterPlot: ScatterPlot,
 	LineChart: LineChart,
 	AreaChart: AreaChart,
-	Brush: Brush
+	Brush: Brush,
+	Transition: Transition
 };
